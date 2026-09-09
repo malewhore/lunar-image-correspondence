@@ -237,3 +237,95 @@ data/processed/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# ============================================================
+# Lunar Image Correspondence — Project-specific ignores
+# ============================================================
+
+# Local Python environments
+rift2-env/
+.venv/
+venv/
+
+# Large / raw lunar datasets
+data/raw/
+data/real_pairs/
+data/ohrc_official/
+data/lroc_official/
+
+# Generated / processed image data
+data/processed/
+data/generated/
+
+# Large official imagery / temporary working data
+official_lroc_exact_overlap/fullres_reference/
+official_lroc_exact_overlap/ohrc_working/
+official_lroc_exact_overlap/projection_v*/
+experiments/official_lroc_exact_overlap/fullres_reference/
+experiments/official_lroc_exact_overlap/projection_v*/
+experiments/official_lroc_exact_overlap/ohrc_working/
+
+
+# Experiment-generated images and feature dumps
+experiments/**/*.png
+experiments/**/*.npz
+
+# Experiment-generated correspondence/result tables
+experiments/**/*_matches.csv
+experiments/**/*_results.csv
+experiments/**/*_correspondences.csv
+experiments/**/*_comparison.csv
+experiments/**/*_grid.csv
+experiments/**/*_checkpoint.csv
+
+# Python caches anywhere in experiments
+experiments/**/__pycache__/
+
+# Model weights
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.safetensors
+
+# Experiment outputs
+experiments/results/
+experiments/runs/
+experiments/outputs/
+
+# Generated backend artifacts
+backend/artifacts/
+
+# Visualization / generated image outputs
+matches/
+registered/
+visualizations/
+
+# Local logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+# ============================================================
+# Third-party repositories
+# ============================================================
+
+# Local checkout of RIFT2; keep third-party code outside our repo
+experiments/rift/rift2_repo/
+
+# ============================================================
+# Experiment-generated artifacts
+# ============================================================
+
+experiments/**/*.png
+experiments/**/*.npz
+
+experiments/**/*_matches.csv
+experiments/**/*_results.csv
+experiments/**/*_correspondences.csv
+experiments/**/*_comparison.csv
+experiments/**/*_grid.csv
+experiments/**/*_checkpoint.csv
+
+experiments/**/__pycache__/
