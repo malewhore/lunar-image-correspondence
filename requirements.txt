@@ -1,0 +1,7 @@
+torch>=2.0.0
+torchvision
+numpy
+opencv-python
+matplotlib
+requests
+git+https://github.com/cvg/LightGlue.git

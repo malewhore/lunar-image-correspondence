@@ -1,0 +1,19 @@
+# Phase 11 Fine-Tuning Configuration
+
+dataset:
+  data_dir: "data/real_pairs_drive"
+  crop_size: [512, 512]
+  train_length: 100
+  val_length: 20
+  test_length: 50
+
+training:
+  epochs: 1
+  batch_size: 1
+  learning_rate: 1.0e-4
+  match_threshold: 5.0
+  device: "auto"
+
+checkpointing:
+  save_dir: "outputs/checkpoints"
+  model_name: "lightglue_lunar"
