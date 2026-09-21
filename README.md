@@ -1,355 +1,1160 @@
 # Lunar Image Correspondence
 
-## SIH 2026 — Problem Statement PS 26166
+## SIH 2026 — Problem Statement SIH26166
 
-**Multi-modal, Sun angle and scale invariant image correspondence using Chandrayaan-2 optical images (OHRC, TMC-2 and IIRS)**
+### Multi-modal, Sun Angle and Scale Invariant Image Correspondence using Chandrayaan-2 Optical Images (OHRC, TMC-2 and IIRS)
 
-A research-oriented software prototype for establishing reliable image correspondences and geometric registration between lunar optical imagery acquired under different imaging conditions.
+A geometry-aware, multi-cue lunar image correspondence and registration system designed to establish reliable correspondences between Chandrayaan-2 optical imagery and reference lunar datasets acquired under different illumination, scale, viewpoint, and sensor conditions.
 
-The system is designed to handle differences in:
+The system is designed around a central principle:
 
-- Illumination caused by changing Sun azimuth and elevation
-- Image scale and ground sampling distance
-- Rotation and viewpoint
-- Perspective and geometric distortion
-- Sensor/modality characteristics
-- Uneven spatial distribution of feature matches
+> Reliable lunar registration is not simply a feature-matching problem. It is a geometry, scale, illumination, modality, correspondence, and verification problem that must be solved as an integrated pipeline.
 
-The objective is not simply to maximize the number of matches, but to produce **geometrically consistent, spatially distributed and quantitatively evaluated correspondences** suitable for lunar image registration.
+The proposed system combines planetary geometry, GSD-aware normalization, illumination-robust image representations, classical and learned correspondence methods, lunar structural cues, robust geometric verification, spatial quality control, and sub-pixel refinement to produce scientifically measurable registration results.
 
 ---
 
-## Problem
+# 1. Problem Statement
 
-Images of the same lunar region can appear substantially different because they may have been acquired:
+Lunar images of the same geographic region can exhibit substantial differences even when they depict the same terrain.
 
-- at different times,
-- under different Sun angles,
-- from different viewing geometries,
-- at different scales,
-- using different optical instruments.
+These differences arise from:
 
-Traditional feature matching can therefore produce few correspondences, clustered matches, or geometrically incorrect matches.
+- Different Sun azimuth and elevation
+- Different illumination and shadow conditions
+- Different spacecraft viewing geometry
+- Different spatial resolutions / GSD
+- Different image scales
+- Different sensors and spectral characteristics
+- Perspective and geometric distortions
+- Low-texture lunar surfaces
+- Strong crater and terrain relief
+- Image striping and sensor-specific artifacts
+- NoData / invalid pixels
+- Uncertain or imperfect geographic overlap
+- Very large image dimensions
 
-This project investigates a hybrid registration pipeline combining classical computer vision, learned feature matching and robust geometric verification.
-
----
-
-## Proposed Pipeline
+The target problem is therefore:
 
 ```text
-Moving / Source Image
-        +
-Reference / Fixed Image
-        │
-        ▼
-┌───────────────────────────────┐
-│ Sensor / Geometry Awareness   │
-│ Metadata + Overlap Analysis   │
-└───────────────┬───────────────┘
-                ▼
-┌───────────────────────────────┐
-│ Lunar Image Preprocessing     │
-│                               │
-│ • Grayscale / normalization   │
-│ • Illumination handling       │
-│ • CLAHE / contrast processing │
-│ • Destriping where required   │
-│ • Geographic overlap cropping │
-└───────────────┬───────────────┘
-                ▼
-┌───────────────────────────────┐
-│ Feature Extraction            │
-│                               │
-│ • SIFT                        │
-│ • SuperPoint                  │
-└───────────────┬───────────────┘
-                ▼
-┌───────────────────────────────┐
-│ Feature Matching              │
-│                               │
-│ • BF / FLANN                  │
-│ • LightGlue                   │
-└───────────────┬───────────────┘
-                ▼
-┌───────────────────────────────┐
-│ Match Filtering               │
-│                               │
-│ • Ratio / confidence checks   │
-│ • Duplicate filtering         │
-│ • Candidate correspondence set│
-└───────────────┬───────────────┘
-                ▼
-┌───────────────────────────────┐
-│ Geometric Verification        │
-│                               │
-│ • RANSAC / MAGSAC++           │
-│ • Similarity                  │
-│ • Affine                      │
-│ • Homography                  │
-└───────────────┬───────────────┘
-                ▼
-┌───────────────────────────────┐
-│ Spatial Correspondence        │
-│ Selection                     │
-│                               │
-│ • Grid-based distribution     │
-│ • Coverage measurement        │
-│ • Uniformity analysis         │
-└───────────────┬───────────────┘
-                ▼
-┌───────────────────────────────┐
-│ Registration / Refinement     │
-│                               │
-│ • Image warping               │
-│ • Local / sub-pixel refinement│
-└───────────────┬───────────────┘
-                ▼
-┌───────────────────────────────┐
-│ Evaluation                    │
-│                               │
-│ • RMSE                        │
-│ • Inlier count                │
-│ • Inlier ratio                │
-│ • Spatial coverage            │
-│ • Uniformity                  │
-│ • Runtime                     │
-└───────────────┬───────────────┘
-                ▼
-        Registered Product
-        + Correspondence Points
-        + Evaluation Metrics
+Given:
 
+    Moving / Source Lunar Image
+              +
+    Fixed / Reference Lunar Image
 
+Find:
 
+    Reliable corresponding points
+              +
+    Geometrically consistent transformation
+              +
+    Registered image
+              +
+    Quantitative quality measurements
 
-Core Design Philosophy
-1. Classical + learned methods
+The system is intended to support correspondence between Chandrayaan-2 imagery such as:
 
-The project does not assume that a single registration method will work reliably across all lunar imaging conditions.
+OHRC
+TMC-2
+IIRS-derived products
 
-A classical SIFT pipeline provides:
+and appropriate lunar reference datasets such as:
 
-A strong and interpretable baseline
-Scale and rotation robustness
-A fallback when learned methods fail
-A useful reference for evaluating learned approaches
+LROC NAC
+Lunar cartographic products
+Other compatible lunar reference imagery
+2. Objectives
 
-A learned pipeline based on SuperPoint + LightGlue is investigated for more difficult correspondence cases.
+The system is designed to achieve the following objectives.
 
-2. Preprocessing is a first-class component
+2.1 Multi-Sensor Correspondence
 
-Preprocessing is treated as part of the scientific experiment rather than a fixed collection of image operations.
+Support correspondence between different lunar imaging sensors instead of assuming identical image characteristics.
 
-Different preprocessing versions can be evaluated against the same correspondence algorithms.
+2.2 Illumination Robustness
 
-Examples include:
+Reduce sensitivity to changes in:
 
-intensity normalization
+Sun elevation
+Sun azimuth
+Shadows
+Surface brightness
+Contrast
+2.3 Scale Robustness
+
+Handle differences in:
+
+Ground Sampling Distance
+Image resolution
+Image dimensions
+Image pyramid level
+2.4 Geometric Robustness
+
+Account for:
+
+Rotation
+Translation
+Scale
+Viewpoint changes
+Local geometric distortion
+Perspective effects
+2.5 Reliable Correspondences
+
+The objective is not simply to maximize raw feature matches.
+
+The system instead seeks:
+
+High-quality
+      +
+Geometrically consistent
+      +
+Spatially distributed
+      +
+Quantitatively validated
+correspondences
+2.6 Sub-Pixel Refinement
+
+After obtaining geometrically reliable correspondences, refine selected points to sub-pixel precision where the image evidence supports it.
+
+2.7 Scientific Evaluation
+
+Every registration result should be accompanied by measurable evidence rather than being judged only by visual alignment.
+
+3. Final System Architecture
+
+The final system follows a single integrated pipeline:
+
+                 ┌──────────────────────────────┐
+                 │     MULTI-SENSOR INPUT       │
+                 │ OHRC / TMC-2 / IIRS / LROC  │
+                 │ + Metadata / PDS4           │
+                 └──────────────┬───────────────┘
+                                │
+                                ▼
+                 ┌──────────────────────────────┐
+                 │ GEOMETRY + OVERLAP           │
+                 │ SPICE / DEM / Georeferencing │
+                 │ Common Lunar Reference Frame │
+                 │ Overlap ROI + Uncertainty    │
+                 └──────────────┬───────────────┘
+                                │
+                                ▼
+                 ┌──────────────────────────────┐
+                 │ GSD-AWARE SCALE NORMALIZATION│
+                 │ Physical scale estimation    │
+                 │ Common working resolution    │
+                 │ Multi-scale pyramid          │
+                 │ OHRC strip-aware tiling      │
+                 └──────────────┬───────────────┘
+                                │
+                                ▼
+                 ┌──────────────────────────────┐
+                 │ ILLUMINATION + MODALITY      │
+                 │ NORMALIZATION                │
+                 │ Robust intensity             │
+                 │ CLAHE / gradient / phase    │
+                 │ Destriping / shadow handling│
+                 │ Spectral → structural cues  │
+                 └──────────────┬───────────────┘
+                                │
+                                ▼
+        ┌─────────────────────────────────────────────────┐
+        │          MULTI-CUE CORRESPONDENCE               │
+        │                                                 │
+        │  Local Features      Lunar Structure            │
+        │  SIFT / RootSIFT    Crater / terrain cues       │
+        │  SuperPoint         Structural representation   │
+        │                                                 │
+        │            Area / Correlation                   │
+        │            Phase correlation                    │
+        │            Mutual information                   │
+        └──────────────────────┬──────────────────────────┘
+                               │
+                               ▼
+                 ┌──────────────────────────────┐
+                 │ MATCH FUSION + SPATIAL QC    │
+                 │ Mutual consistency           │
+                 │ Confidence filtering         │
+                 │ Cross-cue agreement          │
+                 │ Duplicate removal            │
+                 │ Spatial grid / coverage      │
+                 └──────────────┬───────────────┘
+                                │
+                                ▼
+                 ┌──────────────────────────────┐
+                 │ ROBUST GEOMETRIC VERIFICATION│
+                 │ RANSAC / MAGSAC              │
+                 │ Similarity / Affine          │
+                 │ Projective / Homography      │
+                 │ Model validation             │
+                 └──────────────┬───────────────┘
+                                │
+                                ▼
+                 ┌──────────────────────────────┐
+                 │ SUB-PIXEL REFINEMENT         │
+                 │ Local patch optimization     │
+                 │ Gradient / phase / MI cues   │
+                 │ Residual minimization        │
+                 │ Point uncertainty            │
+                 └──────────────┬───────────────┘
+                                │
+                                ▼
+                 ┌──────────────────────────────┐
+                 │ QUALITY GATE + FAILURE       │
+                 │ ACCEPT / RETRY / REJECT      │
+                 │ Inliers / RMSE / coverage    │
+                 │ Median / P95 error           │
+                 └──────────────┬───────────────┘
+                                │
+                                ▼
+                 ┌──────────────────────────────┐
+                 │       REGISTERED PRODUCT     │
+                 │ Registered Image             │
+                 │ Verified Tie Points          │
+                 │ Transformation + Uncertainty │
+                 │ Quality Report               │
+                 └──────────────────────────────┘
+4. Detailed Technical Approach
+4.1 Multi-Sensor Input and Metadata
+
+The system accepts a moving/source image and a fixed/reference image together with available metadata.
+
+Metadata is used to identify:
+
+Sensor
+Acquisition information
+Spatial resolution
+Image geometry
+Geographic coordinates
+Projection
+Valid data region
+Illumination information where available
+
+The pipeline is designed so that missing or uncertain metadata does not immediately terminate processing.
+
+Instead:
+
+Metadata available
+       ↓
+Use geometric localization
+
+Metadata uncertain
+       ↓
+Expand search / overlap uncertainty
+
+Metadata insufficient
+       ↓
+Image-based coarse localization fallback
+5. Geometry and Overlap Localization
+
+Geometric information is used before expensive correspondence processing wherever possible.
+
+The geometry stage establishes:
+
+Sensor geometry
+       ↓
+Common lunar coordinate system
+       ↓
+Approximate geographic footprint
+       ↓
+Candidate overlap region
+       ↓
+Reduced search area
+
+Planetary geometry may incorporate:
+
+SPICE-based geometry
+Sensor metadata
+Lunar DEM information
+Geographic footprints
+Polar projections where appropriate
+
+The overlap is treated as an uncertain region, not automatically as pixel-level ground truth.
+
+This distinction is important because geographic projection and image correspondence have different error characteristics.
+
+6. GSD-Aware Scale Normalization
+
+Different sensors and reference datasets may have substantially different spatial resolutions.
+
+Instead of directly comparing raw pixels:
+
+Sensor A
+  ↓
+Estimated physical GSD
+
+Sensor B
+  ↓
+Estimated physical GSD
+
+        ↓
+
+Common working scale
+
+The system can construct:
+
+GSD-normalized working images
+Multi-scale pyramids
+Resolution-aware image representations
+Sensor-specific processing branches
+
+For large OHRC strips, processing can additionally use:
+
+Large image
+     ↓
+Geographic / geometric ROI
+     ↓
+Tile extraction
+     ↓
+Overlap-aware processing
+
+This reduces unnecessary computation and memory consumption.
+
+7. Illumination and Modality Normalization
+
+The same lunar terrain may appear substantially different under different illumination conditions.
+
+The preprocessing system therefore generates multiple complementary representations.
+
+Intensity Representation
+
+Preserves the overall image structure.
+
+Robust Normalization
+
+Uses percentile-based normalization to reduce the influence of extreme pixels.
+
 CLAHE
-gradient representations
-destriping
-geometric/geographic overlap cropping
-scale normalization
 
-This allows us to determine whether improvements come from the representation, the matching algorithm, or both.
+Improves local contrast in low-contrast terrain.
 
-3. Robust geometric verification
+Gradient Representation
 
-Raw feature matches are not treated as valid correspondences.
+Emphasizes terrain boundaries and structural changes rather than absolute brightness.
 
-Candidate matches are geometrically verified using robust estimation methods such as:
+Multi-Scale Structural Representation
+
+Combines image structures observed at different spatial scales.
+
+Destriped Representation
+
+For sensors such as OHRC where column-wise striping can interfere with feature extraction.
+
+Phase / Structural Representation
+
+Provides a representation less dependent on absolute intensity.
+
+The system does not assume that one preprocessing method is universally optimal.
+
+Instead:
+
+Original
+   │
+   ├── Intensity
+   ├── CLAHE
+   ├── Gradient
+   ├── Multi-scale
+   ├── Destriped
+   └── Structural / phase representation
+             │
+             ▼
+       Correspondence engine
+8. Multi-Cue Correspondence Engine
+
+A major design principle is to avoid depending on a single feature detector or matcher.
+
+The correspondence engine combines multiple complementary cues.
+
+8.1 Local Feature Branch
+
+Potential methods include:
+
+SIFT
+RootSIFT
+SuperPoint
+
+Classical features provide an interpretable and computationally accessible baseline.
+
+Learned features provide an additional correspondence mechanism for difficult image pairs.
+
+8.2 Learned Matching Branch
+
+Where applicable:
+
+SuperPoint
+    ↓
+Feature descriptors
+    ↓
+LightGlue
+    ↓
+Candidate correspondences
+
+The learned branch is not assumed to be universally successful.
+
+It is treated as one component of the multi-cue system.
+
+8.3 Lunar Structural Branch
+
+The lunar surface contains strong geometric structures such as:
+
+Crater rims
+Crater interiors
+Ridges
+Valleys
+Terrain boundaries
+Large-scale topographic structures
+
+These structures can provide useful correspondence evidence even when raw intensity changes substantially.
+
+8.4 Area / Correlation Branch
+
+When sparse local features are insufficient, area-based techniques can provide complementary evidence.
+
+Potential methods include:
+
+Phase correlation
+Mutual information
+Local correlation
+Gradient-based similarity
+
+The goal is to combine sparse feature correspondence with broader image evidence.
+
+9. Match Fusion
+
+Candidate matches generated by different branches are not automatically accepted.
+
+The system evaluates:
+
+Local feature evidence
+        +
+Learned matching confidence
+        +
+Structural agreement
+        +
+Area/correlation evidence
+        +
+Geometric consistency
+
+Candidate matches can then be filtered using:
+
+Descriptor confidence
+Ratio tests where applicable
+Mutual / bidirectional consistency
+Duplicate removal
+Cross-branch agreement
+Neighborhood consistency
+Local geometric consistency
+10. Spatial Quality Control
+
+A high match count alone does not guarantee a useful registration.
+
+For example:
+
+     XXXXX
+     XXXXX
+     XXXXX
+
+        mostly one region
+
+may be less useful than:
+
+X          X
+
+      X
+
+X          X
+
+with reliable points covering the overlap.
+
+Therefore the system evaluates:
+
+Spatial coverage
+Grid occupancy
+Distribution uniformity
+Regional match density
+Clustered-match detection
+
+The goal is to obtain reliable points distributed throughout the usable overlap.
+
+The system does not artificially add weak matches merely to satisfy a coverage target.
+
+11. Robust Geometric Verification
+
+Raw correspondences are treated as hypotheses.
+
+They must pass geometric verification.
+
+Candidate models include:
+
+Similarity
+
+Useful when the dominant transformation is approximately:
+
+translation + rotation + uniform scale
+Affine
+
+Useful when moderate geometric distortion exists.
+
+Projective / Homography
+
+Useful when the image geometry requires a projective model.
+
+The system can evaluate multiple models rather than blindly assuming that every lunar image pair should use a homography.
+
+Robust estimation can use:
 
 RANSAC
 MAGSAC++
+Other robust estimators where appropriate
 
-Depending on the image pair, candidate transformation models include:
+The result is:
 
-Similarity
-Affine
-Homography
+Candidate matches
+      ↓
+Robust model estimation
+      ↓
+Inliers
+      ↓
+Residual analysis
+      ↓
+Validated transformation
+12. Sub-Pixel Refinement
 
-The transformation model should be selected based on the actual image geometry rather than assuming that a homography is always physically appropriate.
+After robust geometric verification, high-confidence correspondences can be refined locally.
 
-4. Spatially distributed correspondences
+The refinement stage operates on image patches around the selected points.
 
-A large number of matches concentrated in one small image region is not necessarily useful for registration.
+Possible optimization signals include:
 
-The system therefore evaluates correspondence distribution using spatial grids and coverage metrics.
+Gradient alignment
+Phase consistency
+Local correlation
+Mutual information
+Residual minimization
 
-The goal is to obtain reliable correspondences distributed across the overlapping region while avoiding the introduction of weak matches merely to satisfy a coverage target.
+The refinement stage produces:
 
-5. Scientific evaluation
+Initial correspondence
+        ↓
+Local optimization
+        ↓
+Sub-pixel coordinate
+        +
+Uncertainty / residual
 
-The system is designed to report measurable results rather than claiming registration success based only on visual appearance.
+Sub-pixel coordinates are not themselves treated as proof of sub-pixel accuracy.
 
-Primary metrics include:
+Accuracy must be evaluated against appropriate geometric or experimental evidence.
 
-RMSE
-Inlier match count
+13. Quality Gate
+
+Every result passes through a final validation stage.
+
+Important measurements include:
+
+Inlier count
 Inlier ratio
-
-Additional diagnostics include:
-
+RMSE
 Median geometric error
 P95 geometric error
 Spatial coverage
-Uniformity coefficient of variation
+Distribution uniformity
+Transformation consistency
 Runtime
-Failure/warning status
+Failure / warning state
 
-Metrics are reported from actual experiments. No performance values are hard-coded or claimed without reproducible evidence.
+The final decision is:
 
-Data
+                 ┌──────────────┐
+                 │ Quality Gate │
+                 └──────┬───────┘
+                        │
+              ┌─────────┼─────────┐
+              ↓         ↓         ↓
+           ACCEPT     RETRY     REJECT
+ACCEPT
 
-The project investigates lunar imagery including:
+The correspondence set satisfies the configured quality requirements.
 
-Chandrayaan-2
-OHRC
-TMC-2
-IIRS
-Reference imagery
+RETRY
 
-Reference datasets may include:
+The result is insufficient but another processing configuration may be appropriate.
 
-LROC NAC imagery
-Lunar reference mosaics
-Other appropriate lunar cartographic products
+Examples:
 
-Official Chandrayaan-2 data sources include the ISRO/ISS DC data systems.
+Alternate preprocessing representation
+Alternate feature branch
+Alternate scale
+Alternate geometric model
+Expanded overlap
+Alternative matching strategy
+REJECT
 
-Large raw datasets and generated experiment artifacts are intentionally excluded from Git version control.
+The available evidence is insufficient to establish a reliable registration.
 
-Current Research Direction
+The system reports the failure reason rather than producing an apparently valid but unreliable result.
 
-The current development process follows:
+14. Failure Recovery Strategy
+
+The final architecture explicitly considers difficult cases.
+
+Case 1 — Very Few Features
+Few keypoints
+      ↓
+Alternate representation
+      ↓
+Gradient / structural representation
+      ↓
+Learned feature branch
+      ↓
+Area-based matching
+Case 2 — Matches Concentrated in One Region
+Clustered matches
+      ↓
+Spatial grid analysis
+      ↓
+Region-aware filtering
+      ↓
+Alternative representation / tile
+      ↓
+Re-estimation
+Case 3 — Illumination Mismatch
+Large brightness difference
+      ↓
+Intensity-independent representations
+      ↓
+Gradient / phase / structural matching
+      ↓
+Robust geometric verification
+Case 4 — Large Scale Difference
+Different GSD
+      ↓
+Physical scale estimation
+      ↓
+GSD-aware normalization
+      ↓
+Multi-scale correspondence
+Case 5 — OHRC Striping
+OHRC image
+      ↓
+Valid-pixel analysis
+      ↓
+Column-gain correction
+      ↓
+Structural representation
+      ↓
+Feature extraction
+Case 6 — Large OHRC Image
+Large strip
+      ↓
+Overlap localization
+      ↓
+ROI extraction
+      ↓
+Tile-based processing
+      ↓
+Local correspondence
+      ↓
+Global verification
+Case 7 — Metadata Uncertainty
+Metadata
+   │
+   ├── reliable → geometry-guided overlap
+   │
+   └── uncertain
+          ↓
+   uncertainty-expanded search
+          ↓
+   image-based fallback
+Case 8 — False Correspondences
+Raw matches
+     ↓
+Confidence filtering
+     ↓
+Mutual consistency
+     ↓
+Geometric verification
+     ↓
+Spatial QC
+     ↓
+Validated inliers
+Case 9 — Visually Aligned but Scientifically Unreliable
+
+The system does not consider visual alignment alone sufficient.
+
+A result can be rejected when:
+
+Inlier count is insufficient
+Inlier ratio is poor
+Error is excessive
+Spatial coverage is inadequate
+Transformation is geometrically inconsistent
+Residual distribution is unstable
+15. Output Products
+
+For every successful registration, the system produces:
+
+15.1 Registered Image
+
+The moving image transformed into the reference coordinate system.
+
+15.2 Verified Correspondence Points
+
+A set of geometrically validated tie points.
+
+Each point may contain:
+
+Source coordinate
+Reference coordinate
+Match confidence
+Geometric residual
+Refinement status
+Estimated uncertainty
+15.3 Transformation Parameters
+
+Including the selected geometric model and its parameters.
+
+15.4 Quality Report
+
+Containing:
+
+Input information
+Sensor information
+Processing configuration
+Transformation model
+Raw matches
+Verified inliers
+Inlier ratio
+RMSE
+Median error
+P95 error
+Spatial coverage
+Uniformity
+Runtime
+Warnings
+Final decision
+15.5 Machine-Readable Result
+
+A structured JSON/CSV result can be generated for downstream processing.
+
+16. Evaluation Metrics
+
+The system is evaluated using quantitative measurements rather than visual appearance alone.
+
+Primary Metrics
+Inlier Count
+
+Number of correspondences consistent with the estimated geometric model.
+
+Inlier Ratio
+Inlier Ratio =
+Number of Inliers / Number of Candidate Matches
+RMSE
+
+Measures geometric registration error.
+
+Spatial Coverage
+
+Measures how much of the usable overlap is represented by verified correspondences.
+
+Additional Metrics
+Median geometric error
+P95 geometric error
+Spatial uniformity
+Grid occupancy
+Runtime
+Failure rate
+Processing memory where relevant
+
+Synthetic transformations can additionally be used during development because the ground-truth transformation is known.
+
+However:
+
+Synthetic performance is not presented as equivalent to real lunar-image performance.
+
+Final performance claims should be based on reproducible real lunar image pairs wherever possible.
+
+17. Experimental Methodology
+
+The development process follows a controlled progression:
 
 Dataset investigation
         ↓
-Geometric / geographic overlap validation
+Geometry / geographic validation
         ↓
 Preprocessing experiments
         ↓
 Reliable SIFT baseline
         ↓
-SuperPoint + LightGlue baseline
+Learned matching baseline
         ↓
 Robust geometric verification
         ↓
 Spatial correspondence analysis
         ↓
-Preprocessing comparison
+Multi-cue fusion
         ↓
-Refinement / sub-pixel correspondence
+Sub-pixel refinement
         ↓
-Quantitative evaluation
+Quality gate
+        ↓
+Real lunar validation
         ↓
 Integrated prototype
 
-Synthetic transformations may be used during development and debugging because they provide known transformations and therefore controlled evaluation.
+Every significant experiment should record:
 
-Final performance claims should be based on real lunar image pairs wherever possible.
+Dataset / image pair
+Sensor
+Preprocessing configuration
+Feature method
+Matching method
+Transformation model
+Candidate match count
+Inlier count
+Inlier ratio
+RMSE
+Median error
+P95 error
+Spatial metrics
+Runtime
+Failure condition
+Git commit / implementation version
 
-Repository Structure
-lunar-image-correspondence/
-│
-├── src/
-│   ├── preprocessing/
-│   ├── features/
-│   ├── matching/
-│   ├── geometry/
-│   ├── refinement/
-│   ├── registration/
-│   └── metrics/
-│
-├── backend/
-│   └── ...
-│
-├── frontend/
-│   └── ...
-│
-├── experiments/
-│   ├── deep_learning/
-│   ├── multimodal/
-│   ├── rift/
-│   └── ...
-│
-├── docs/
-│   ├── architecture.md
-│   ├── dataset.md
-│   └── experiments.md
-│
-├── notebooks/
-│
-├── tests/
-│
-└── README.md
+This makes improvements attributable and reproducible.
 
-The repository separates:
+18. Current Repository Implementation
 
-reusable pipeline code
-backend/API infrastructure
-frontend/demo interface
-research experiments
-documentation
-tests
-Development Architecture
+The repository currently contains research and prototype components covering several stages of the final architecture.
 
-The system is being developed as separate components with stable interfaces.
+Important existing components include:
 
-Frontend
-   │
-   ▼
+src/
+├── preprocessing/
+│   ├── preprocess.py
+│   ├── extract_p0_overlap.py
+│   └── run_preprocessing_experiments.py
+│
+├── features/
+│   └── sift_features.py
+│
+├── matching/
+│   └── sift_benchmark.py
+│
+└── pipeline.py
+
+Research and geometry investigation scripts include:
+
+build_true_1m_ohrc_crop.py
+diagnose_ohrc_geometry.py
+official_1m_working_pair.py
+official_lroc_exact_overlap.py
+official_ohrc_representation_benchmark.py
+
+Testing includes:
+
+test_preprocessing_correspondence.py
+test_preprocessing_synthetic.py
+
+Documentation is organized under:
+
+docs/
+├── architecture.md
+├── dataset.md
+└── experiments.md
+
+The repository's current implementation contains substantial preprocessing and experimental work, while the final integrated architecture requires consolidation of these components into a stable end-to-end orchestration layer.
+
+19. Target Software Architecture
+
+The final software is organized into modular components:
+
+Frontend / Portal
+       │
+       ▼
 Backend / API
-   │
-   ▼
+       │
+       ▼
 Registration Orchestrator
-   │
-   ├──────────────► Preprocessing Pipeline
-   │
-   └──────────────► Registration Algorithm
-                         │
-              ┌──────────┴──────────┐
-              ▼                     ▼
-             SIFT          SuperPoint + LightGlue
-              │                     │
-              └──────────┬──────────┘
-                         ▼
-                  Standardized Result
-                         │
-                         ▼
-                 Evaluation / Artifacts
+       │
+       ├── Metadata / PDS4
+       │
+       ├── Geometry Engine
+       │
+       ├── Overlap Localization
+       │
+       ├── Scale / GSD Engine
+       │
+       ├── Preprocessing
+       │
+       ├── Feature Extraction
+       │
+       ├── Matching
+       │
+       ├── Match Fusion
+       │
+       ├── Geometric Verification
+       │
+       ├── Sub-Pixel Refinement
+       │
+       ├── Quality Gate
+       │
+       └── Metrics / Reporting
+                │
+                ▼
+        Registered Product
 
-This allows CV, deep-learning, preprocessing and application-development work to progress independently before final integration.
+Each module should expose a stable interface so that research experiments can be replaced or improved without rewriting the entire application.
 
-Team Development Workflow
+20. Technology Stack
+Programming
+Python
+Computer Vision
+OpenCV
+SIFT / RootSIFT
+Gradient and structural representations
+Geometric verification
+Deep Learning
+PyTorch
+SuperPoint
+LightGlue
+Planetary Geometry
+SPICE
+Lunar DEM products
+Geographic projections
+GDAL
+Data Processing
+NumPy
+Raster/image processing libraries
+CSV / JSON metadata
+Backend
+Python-based API layer
+Database / Metadata
+PostgreSQL where required
+Deployment
+Linux
+Docker
+CPU execution
+Optional GPU acceleration
+21. Deployment Architecture
+
+The system is designed to operate in multiple environments.
+
+                    Lunar Registration System
+                              │
+             ┌────────────────┼────────────────┐
+             │                │                │
+             ▼                ▼                ▼
+          Local PC         Docker          Server/HPC
+             │                │                │
+             └────────────────┼────────────────┘
+                              │
+                              ▼
+                       Registration API
+                              │
+                              ▼
+                    Processing Pipeline
+
+The same core registration engine should remain independent of the presentation layer.
+
+This allows the prototype to evolve from:
+
+Research scripts
+      ↓
+Integrated Python pipeline
+      ↓
+Backend API
+      ↓
+Web demonstration
+      ↓
+Operational / batch processing
+22. Prototype Workflow
+
+The intended demonstration workflow is:
+
+1. Upload source image
+          ↓
+2. Upload reference image
+          ↓
+3. Read metadata
+          ↓
+4. Determine sensor / scale
+          ↓
+5. Estimate overlap
+          ↓
+6. Normalize scale and modality
+          ↓
+7. Run correspondence engine
+          ↓
+8. Verify matches geometrically
+          ↓
+9. Refine correspondences
+          ↓
+10. Evaluate quality
+          ↓
+11. Display registered image
+          ↓
+12. Display verified tie points
+          ↓
+13. Display metrics
+          ↓
+14. Download results
+23. Scientific Integrity
+
+The project follows several principles to avoid misleading registration results.
+
+Principle 1
+
+A visually aligned image is not automatically a successful registration.
+
+Principle 2
+
+A large number of raw matches is not automatically good correspondence.
+
+Principle 3
+
+Sub-pixel coordinates are not automatically evidence of sub-pixel accuracy.
+
+Principle 4
+
+Synthetic experiments and real lunar experiments are reported separately.
+
+Principle 5
+
+Geographic overlap is not automatically pixel-level ground truth.
+
+Principle 6
+
+Failed experiments are useful evidence and should be retained during development.
+
+Principle 7
+
+Performance numbers are reported only when supported by reproducible experiments.
+
+24. Expected Benefits
+
+The proposed system is intended to provide:
+
+Multi-Sensor Registration
+
+A common framework for Chandrayaan-2 OHRC, TMC-2 and IIRS-derived imagery and compatible lunar reference datasets.
+
+Illumination Robustness
+
+Reduced dependence on raw intensity through structural and multi-representation processing.
+
+Scale Robustness
+
+GSD-aware normalization and multi-scale processing.
+
+Geometry Awareness
+
+Use of available planetary geometry before expensive image matching.
+
+Reliable Tie Points
+
+Geometrically verified and spatially distributed correspondences rather than raw feature matches.
+
+Sub-Pixel Refinement
+
+Improved localization of high-confidence correspondence points where image evidence supports it.
+
+Reproducible Evaluation
+
+Quantitative metrics and experiment configurations rather than visual-only validation.
+
+Extensibility
+
+A modular architecture that can incorporate additional lunar missions, sensors, representations, and matching algorithms.
+
+25. Future Scope
+
+The architecture is designed to support future extensions such as:
+
+Additional Chandrayaan datasets
+Additional lunar optical sensors
+Improved lunar DEM integration
+Advanced learned correspondence models
+RIFT-style modality-invariant representations
+Improved crater / terrain structural matching
+More sophisticated uncertainty estimation
+GPU acceleration
+Large-scale batch processing
+Automated dataset benchmarking
+Integration with planetary mapping workflows
+Extension toward future lunar missions and datasets
+
+These are future extensions of the architecture, not claims that every component is already operational.
+
+26. Project Development Strategy
+
+Development is organized into the following layers:
+
+LAYER 1
+Dataset + Geometry
+        ↓
+LAYER 2
+Preprocessing + Scale Normalization
+        ↓
+LAYER 3
+Correspondence Algorithms
+        ↓
+LAYER 4
+Match Fusion + Geometric Verification
+        ↓
+LAYER 5
+Sub-Pixel Refinement
+        ↓
+LAYER 6
+Quality Gate + Metrics
+        ↓
+LAYER 7
+Registration Orchestrator
+        ↓
+LAYER 8
+Backend / API
+        ↓
+LAYER 9
+Frontend / Portal
+        ↓
+LAYER 10
+Deployment + Demonstration
+
+This prevents the project from becoming a collection of disconnected experimental scripts.
+
+27. Repository Development Workflow
 
 The repository uses:
 
 main
   │
-  └── stable / demo-ready code
+  └── Stable / demonstration-ready code
 
 develop
   │
-  └── integration branch
+  └── Integration branch
 
 feature/*
   │
-  ├── feature/preprocessing
-  ├── feature/cv
-  ├── feature/dl
-  ├── feature/backend
-  ├── feature/frontend
-  └── feature/evaluation
+  ├── preprocessing
+  ├── geometry
+  ├── correspondence
+  ├── deep-learning
+  ├── registration
+  ├── backend
+  ├── frontend
+  └── evaluation
 
-Development workflow:
+Development flow:
 
 Feature branch
       ↓
 Implementation
       ↓
-Experiment / testing
+Testing
+      ↓
+Experiment
       ↓
 Pull Request
       ↓
@@ -359,62 +1164,123 @@ Integration testing
       ↓
 main
 
-Large datasets, model weights, virtual environments and generated experiment outputs should not be committed to the repository.
+Large datasets, model weights, generated artifacts and virtual environments should remain outside Git version control.
 
-Reproducibility
+28. Final System Objective
 
-Each significant experiment should record, where applicable:
+The final system aims to transform:
 
-Dataset / image pair
-Preprocessing version
-Algorithm
-Algorithm version
-Configuration
-Transformation model
-Match counts
-Inlier counts
-Inlier ratio
-RMSE
-Spatial metrics
-Runtime
-Failure cases
-Git commit
+Different lunar images
+        ↓
+Different sensors
+        ↓
+Different scales
+        ↓
+Different illumination
+        ↓
+Different viewing conditions
 
-The objective is to make improvements attributable and reproducible rather than relying on isolated successful examples.
+into:
 
-Status
-Current
-Repository initialized
-GitHub remote configured
-main and develop branches established
-Feature branches established for the six workstreams
-Initial preprocessing and correspondence research code added
-Geographic overlap and real lunar-pair investigation underway
-SIFT baseline under development
-SuperPoint + LightGlue experiments underway
-Backend architecture being developed independently
-Frontend/demo integration planned
-Next milestones
-Finalize preprocessing pipeline
-Establish reproducible SIFT baseline
-Establish reproducible learned-matching baseline
-Integrate robust geometric verification
-Implement correspondence refinement
-Define final evaluation protocol
-Integrate backend + algorithms
-Integrate frontend
-Validate on real lunar image pairs
-Prepare final SIH demonstration
-Scientific Integrity
+Common geographic context
+        ↓
+Reliable correspondence
+        ↓
+Geometrically verified tie points
+        ↓
+Sub-pixel refined matches
+        ↓
+Validated registration
+        ↓
+Scientifically measurable output
 
-This project prioritizes measurable and reproducible results.
+The central objective is therefore:
 
-In particular:
+To build a robust, geometry-aware and quantitatively validated lunar image correspondence system capable of establishing reliable cross-sensor and cross-condition correspondences for Chandrayaan-2 imagery and compatible lunar reference datasets.
 
-A visually aligned image is not automatically considered a successful registration.
-A high number of raw matches is not automatically considered good correspondence.
-Sub-pixel coordinates are not treated as evidence of sub-pixel accuracy.
-Synthetic experiments are distinguished from real lunar-image evaluation.
-Failed experiments are retained as part of the research process.
-Performance numbers are reported only when supported by actual experiments.
-```
+29. Project Status
+Research / Prototype Components
+Repository structure established
+OHRC preprocessing investigation
+OHRC destriping research
+Geographic overlap investigation
+GSD-aware OHRC working-image generation
+Multi-representation preprocessing
+SIFT baseline development
+Correspondence experiments
+Synthetic testing
+Real lunar-pair investigation
+Robust registration architecture defined
+Integration Work
+
+The next engineering stage is to consolidate the existing research components into the final modular architecture:
+
+Existing Research Code
+        ↓
+Validated Modules
+        ↓
+Unified Interfaces
+        ↓
+Registration Orchestrator
+        ↓
+Quality Gate
+        ↓
+Backend API
+        ↓
+Portal / Demonstration
+30. Final Deliverables
+
+The completed system is intended to provide:
+
+┌─────────────────────────────────────────────┐
+│              FINAL DELIVERABLES             │
+├─────────────────────────────────────────────┤
+│                                             │
+│  1. Lunar Image Registration Software       │
+│                                             │
+│  2. Registered Image Product                │
+│                                             │
+│  3. Verified Correspondence / Tie Points    │
+│                                             │
+│  4. Transformation Parameters               │
+│                                             │
+│  5. Sub-Pixel Refined Points                │
+│                                             │
+│  6. Quantitative Quality Metrics            │
+│                                             │
+│  7. Failure / Warning Diagnostics           │
+│                                             │
+│  8. Reproducible Experiment Configuration  │
+│                                             │
+│  9. API / Demonstration Interface           │
+│                                             │
+│ 10. Technical Documentation                 │
+│                                             │
+└─────────────────────────────────────────────┘
+Project Philosophy
+
+The system is designed to move beyond simple feature matching toward a geometry-aware, multi-cue, failure-aware, quantitatively validated lunar registration framework.
+
+The final pipeline is:
+
+INPUT + METADATA
+       ↓
+GEOMETRY + OVERLAP
+       ↓
+GSD-AWARE NORMALIZATION
+       ↓
+ILLUMINATION / MODALITY NORMALIZATION
+       ↓
+MULTI-CUE CORRESPONDENCE
+       ↓
+MATCH FUSION + SPATIAL QC
+       ↓
+ROBUST GEOMETRIC VERIFICATION
+       ↓
+SUB-PIXEL REFINEMENT
+       ↓
+QUALITY GATE
+       ↓
+REGISTERED PRODUCT
+
+Reliable correspondence first. Registration second. Quantitative validation always.
